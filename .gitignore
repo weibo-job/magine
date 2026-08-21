@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+.playwright-cli/
+frames/
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
