@@ -1,0 +1,54 @@
+/* Magine Canvas — 设计 token（S1.2，依据 outputs/MagineCanvas_UI_风格板.html + HANDOFF §6）
+ * 全局唯一 token 来源：改这里 = 全应用生效。
+ */
+:root {
+  /* 背景层 */
+  --bg-page: #f2f2f2;        /* 页面最底层背景（小云雀浅灰） */
+  --bg-surface: #ffffff;     /* 卡片 / 面板 / 侧栏 */
+  --bg-hover: #f5f5f5;       /* 悬停态 */
+  --bg-input: #fafafa;       /* 输入框浅底 */
+
+  /* 文字 */
+  --text-primary: #111111;   /* 主文字 / 主按钮 */
+  --text-secondary: #666666; /* 次要文字 */
+  --text-tertiary: #999999;  /* 占位 / 提示 */
+
+  /* 线条 */
+  --border: #e5e5e5;         /* 常规边框 */
+  --border-strong: #d5d5d5;  /* 强边框（分区） */
+
+  /* 强调色：小云雀主色是黑白灰，粉紫渐变只做 Badge/点缀 */
+  --accent: #111111;             /* 主操作色（黑） */
+  --accent-contrast: #ffffff;    /* 主操作上的文字 */
+  --gradient-soft: linear-gradient(135deg, #c9b8ff 0%, #ffd6e8 100%); /* 点缀渐变 */
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* 阴影 3 档 */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-float: 0 4px 14px rgba(0, 0, 0, 0.08);
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.12);
+
+  /* 字体栈（中文优先 PingFang SC） */
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei",
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* 间距基准（4px 栅格） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* 侧栏 / 顶栏尺寸 */
+  --sidebar-w: 220px;
+  --topbar-h: 56px;
+}
