@@ -56,7 +56,8 @@ import { InteractionTracker } from '../interaction/tracker'
 import { ProactiveEngine, SCENES } from '../interaction/proactive'
 import type { AppSignals, MagicItem } from '../interaction/proactive'
 import MagicBar from '../interaction/MagicBar'
-import { saveAssetIfNew, type SavedAsset, type AssetKind } from '../store/assets'
+import { loadAssets, saveAssetIfNew, type SavedAsset, type AssetKind } from '../store/assets'
+import { ASSISTANT_ACTIONS, WORKFLOW_PRESETS, createPromptNodeData, planWorkflow, type ToolbarPanelItem } from './toolbarPanels'
 
 // 自定义节点类型注册（组件外定义，避免 React Flow 重渲染警告）
 const nodeTypes = { card: NodeCard }
@@ -112,6 +113,8 @@ function CanvasInner({
   // 小云雀风：「向该节点生成」菜单（拖线到空白松手弹出）
   const [genMenu, setGenMenu] = useState<{ x: number; y: number; fromId: string } | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [activeToolbarPanel, setActiveToolbarPanel] = useState<'assistant' | 'preset' | null>(null)
+  const [promptPresets, setPromptPresets] = useState<SavedAsset[]>([])
   const [historyPaths, setHistoryPaths] = useState<string[]>([])
   const [localVersions, setLocalVersions] = useState<ReturnType<typeof loadLocalVersions>>([])
   const assetInsertedRef = useRef<string | null>(null)
@@ -377,9 +380,14 @@ function CanvasInner({
     } else if (action === 'import') {
       importInputRef.current?.click()
     } else if (action === 'history') {
+      setActiveToolbarPanel(null)
       setShowHistory((value) => !value)
       void loadRecent().then(setHistoryPaths)
       setLocalVersions(loadLocalVersions())
+    } else if (action === 'assistant' || action === 'preset') {
+      setShowHistory(false)
+      setActiveToolbarPanel((value) => value === action ? null : action)
+      if (action === 'preset') setPromptPresets(loadAssets().filter((asset) => asset.kind === 'prompt'))
     } else {
       console.log('[toolbar]', action)
     }
@@ -387,6 +395,11 @@ function CanvasInner({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveToolbarPanel(null)
+        setShowHistory(false)
+        return
+      }
       const target = event.target as HTMLElement | null
       if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable) return
       const key = event.key.toLowerCase()
@@ -614,17 +627,43 @@ function CanvasInner({
       showToast('请输入要搭建的工作流描述')
       return
     }
-    const lower = instr.toLowerCase()
-    const isMarket = /营销|商品|电商|卖点|详情页|广告/.test(instr)
-    const isDrama = /短剧|剧情|分镜|角色|剧本/.test(instr)
-    const nodes = isMarket
-      ? ['提示词', 'LLM 文案', '图像', '视频']
-      : isDrama
-        ? ['提示词', 'LLM 剧本', '分镜', '图像', '视频']
-        : ['提示词', 'LLM', '图像', '视频']
-    const outputs = isMarket ? ['标题/卖点文案', '商品图', '营销视频'] : isDrama ? ['剧本/分镜', '首帧图', '短剧视频'] : ['文本', '图片', '视频']
-    if (lower.includes('音乐') || lower.includes('配乐')) outputs.push('配乐')
+    const { nodes, outputs } = planWorkflow(instr)
     setWfPreview({ prompt: instr, nodes, outputs })
+  }
+
+  const runAssistantAction = (item: ToolbarPanelItem) => {
+    if (item.id === 'organize') {
+      buildCanvasApi({ setNodes, getNodes, getEdges, setEdges }).autoLayout()
+      window.setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 60)
+      setActiveToolbarPanel(null)
+      showToast('已整理画布布局')
+      return
+    }
+    const prompt = item.id === 'workflow' && wfInput.trim() ? wfInput.trim() : item.prompt
+    setWfInput(prompt)
+    setActiveToolbarPanel(null)
+    runWorkflow(prompt)
+  }
+
+  const openWorkflowPreset = (item: ToolbarPanelItem) => {
+    setWfInput(item.prompt)
+    setActiveToolbarPanel(null)
+    runWorkflow(item.prompt)
+  }
+
+  const insertPromptPreset = (asset: SavedAsset) => {
+    const ratio = getDefaultRatio('prompt')
+    const size = getDefaultNodeSize('prompt', ratio)
+    const node: Node = {
+      id: `preset-${idSeq++}`,
+      type: 'card',
+      position: getSuggestedNodePosition(getNodes(), 'prompt'),
+      data: { ...createPromptNodeData(asset.name, asset.content), ratio, model: getDefaultModel('prompt') },
+      style: { width: size.w, height: size.h },
+    }
+    setNodes((current) => [...current, node])
+    setActiveToolbarPanel(null)
+    showToast(`已放入预设「${asset.name}」`)
   }
 
   const confirmWorkflow = () => {
@@ -772,6 +811,7 @@ function CanvasInner({
         onPaneClick={() => {
           setSelectedNodeId(null)
           setGenMenu(null)
+          setActiveToolbarPanel(null)
         }}
         panOnDrag={!selectMode}
         panOnScroll
@@ -812,6 +852,69 @@ function CanvasInner({
               <span>↶</span><span>{new Date(version.savedAt).toLocaleString()}</span>
             </button>
           ))}
+        </aside>
+      )}
+
+      {activeToolbarPanel && (
+        <aside className={`mc-tool-panel mc-tool-panel-${activeToolbarPanel}`} aria-label={activeToolbarPanel === 'assistant' ? '画布助手' : '工作流预设'}>
+          <div className="mc-tool-panel-head">
+            <div>
+              <strong>{activeToolbarPanel === 'assistant' ? '画布助手' : '工作流预设'}</strong>
+              <span>{activeToolbarPanel === 'assistant' ? '快速搭建、补全或整理当前画布' : '选择模板，先预览方案再创建节点'}</span>
+            </div>
+            <button type="button" onClick={() => setActiveToolbarPanel(null)} aria-label="关闭面板">×</button>
+          </div>
+
+          {activeToolbarPanel === 'assistant' ? (
+            <>
+              <div className="mc-assistant-input">
+                <input
+                  value={wfInput}
+                  onChange={(event) => setWfInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      setActiveToolbarPanel(null)
+                      runWorkflow()
+                    }
+                  }}
+                  placeholder="告诉助手你想搭建或优化什么…"
+                />
+                <button type="button" onClick={() => { setActiveToolbarPanel(null); runWorkflow() }}>生成方案</button>
+              </div>
+              <div className="mc-tool-grid">
+                {ASSISTANT_ACTIONS.map((item) => (
+                  <button type="button" className="mc-tool-card" key={item.id} onClick={() => runAssistantAction(item)}>
+                    <span className="mc-tool-icon">{item.icon}</span>
+                    <span><b>{item.title}</b><small>{item.description}</small></span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mc-tool-section-title">内置工作流</div>
+              <div className="mc-tool-grid">
+                {WORKFLOW_PRESETS.map((item) => (
+                  <button type="button" className="mc-tool-card" key={item.id} onClick={() => openWorkflowPreset(item)}>
+                    <span className="mc-tool-icon">{item.icon}</span>
+                    <span><b>{item.title}</b><small>{item.description}</small></span>
+                  </button>
+                ))}
+              </div>
+              <div className="mc-tool-section-title mc-tool-section-saved">我的提示词预设 <span>{promptPresets.length}</span></div>
+              {promptPresets.length === 0 ? (
+                <div className="mc-tool-empty">在提示词节点点击“存预设”后，会自动出现在这里。</div>
+              ) : (
+                <div className="mc-preset-list">
+                  {promptPresets.slice(0, 10).map((asset) => (
+                    <button type="button" key={asset.id} onClick={() => insertPromptPreset(asset)}>
+                      <b>{asset.name}</b><span>{asset.content}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </aside>
       )}
 

@@ -13,7 +13,8 @@ export function loadRoundtableArtifacts(): RoundtableArtifact[] {
 
 export function saveRoundtableArtifact(artifact: RoundtableArtifact): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify([artifact, ...loadRoundtableArtifacts()].slice(0, 30)))
+    const next = [artifact, ...loadRoundtableArtifacts().filter((item) => item.id !== artifact.id)].slice(0, 30)
+    localStorage.setItem(KEY, JSON.stringify(next))
   } catch {
     // 圆桌历史保存失败不应阻断当前讨论。
   }

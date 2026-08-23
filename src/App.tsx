@@ -1,5 +1,5 @@
 // S1.4 应用外壳：侧栏 + 顶栏 + 内容区（欢迎页 / 画布页 / 设置页切换）
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import Sidebar from './layout/Sidebar'
 import TopBar from './layout/TopBar'
@@ -16,6 +16,7 @@ import { openProjectFile, loadRecent, loadLocal, clearLocal } from './store/proj
 import { loadVaultStatic } from './settings/keyVault'
 import { setVault } from './settings/vaultStore'
 import { artifactToCanvasNodes, type RoundtableArtifact } from './roundtable/domain'
+import { saveRoundtableArtifact } from './roundtable/store'
 
 const TITLES: Record<string, string> = {
   create: '创作',
@@ -38,6 +39,8 @@ export default function App() {
   const [pendingAsset, setPendingAsset] = useState<{ id: number; asset: SavedAsset } | null>(null)
   const [solutionArtifact, setSolutionArtifact] = useState<import('./roundtable/domain').RoundtableArtifact | null>(null)
   const [roundtableArtifact, setRoundtableArtifact] = useState<RoundtableArtifact | null>(null)
+  const [roundtableResumeKey, setRoundtableResumeKey] = useState<'roundtable' | 'solution'>('roundtable')
+  const [roundtableSeed, setRoundtableSeed] = useState<{ id: number; prompt: string } | null>(null)
 
   useEffect(() => {
     loadRecent().then(setRecent)
@@ -98,56 +101,64 @@ export default function App() {
   }
 
   function handleOpenSolution(artifact: import('./roundtable/domain').RoundtableArtifact) {
+    setRoundtableArtifact(artifact)
+    saveRoundtableArtifact(artifact)
     setSolutionArtifact(artifact)
+    setRoundtableResumeKey('solution')
     setActiveKey('solution')
   }
 
   function handleContinueDiscussion(artifact: RoundtableArtifact) {
+    saveRoundtableArtifact(artifact)
     setRoundtableArtifact(artifact)
+    setRoundtableResumeKey('roundtable')
+    setActiveKey('roundtable')
+  }
+
+  function handleStartRoundtable(prompt: string) {
+    if (activeKey === 'roundtable' && !window.confirm('进入示例会替换当前圆桌草稿，是否继续？')) return
+    setRoundtableArtifact(null)
+    setRoundtableSeed({ id: Date.now(), prompt })
     setActiveKey('roundtable')
   }
 
   function handleBackFromSolution(artifact: RoundtableArtifact) {
+    saveRoundtableArtifact(artifact)
     setSolutionArtifact(artifact)
     setRoundtableArtifact(artifact)
+    setRoundtableResumeKey('roundtable')
     setActiveKey('roundtable')
   }
 
-  function renderContent() {
-    switch (activeKey) {
-      case 'settings':
-        return <ConfigCenter />
-      case 'free':
-        return (
-          <CanvasPage
-            key={`${projectPath || 'new'}-${pendingWorkflow?.id ?? 'idle'}-${pendingAsset?.id ?? 'none'}`}
-            initialProject={initialProject ?? undefined}
-            workflowPrompt={pendingWorkflow?.prompt}
-            assetToInsert={pendingAsset?.asset}
-          />
-        )
-      case 'create':
-        return <Welcome onNew={handleNew} onOpen={handleOpen} recent={recent} />
-      case 'drama':
-        return <AgentWorkbenchPage kind="drama" onBuildWorkflow={handleBuildWorkflow} />
-      case 'market':
-        return <AgentWorkbenchPage kind="market" onBuildWorkflow={handleBuildWorkflow} />
-      case 'assets':
-        return <AssetPage onInsert={handleInsertAsset} />
-      case 'learn':
-        return <LearnPage />
-      case 'roundtable':
-        return <RoundtablePage initialArtifact={roundtableArtifact} onSendToCanvas={handleSendRoundtableToCanvas} onOpenSolution={handleOpenSolution} />
-      case 'solution':
-        return solutionArtifact ? <SolutionWorkbenchPage artifact={solutionArtifact} onBack={handleBackFromSolution} onContinueDiscussion={handleContinueDiscussion} /> : <RoundtablePage initialArtifact={roundtableArtifact} onSendToCanvas={handleSendRoundtableToCanvas} onOpenSolution={handleOpenSolution} />
-      default:
-        return <Welcome onNew={handleNew} onOpen={handleOpen} recent={recent} />
+  function handleNavigate(nextKey: string) {
+    if (nextKey === 'roundtable' && roundtableResumeKey === 'solution' && solutionArtifact) {
+      setActiveKey('solution')
+      return
     }
+    if (!['roundtable', 'solution'].includes(nextKey) && ['roundtable', 'solution'].includes(activeKey)) {
+      setRoundtableResumeKey(activeKey as 'roundtable' | 'solution')
+    }
+    setActiveKey(nextKey)
+  }
+
+  function renderContent() {
+    const layer = (key: string, content: ReactNode) => <div key={key} className={`app-page-layer${activeKey === key ? ' is-active' : ''}`}>{content}</div>
+    return <div className="app-page-stack">
+      {layer('settings', <ConfigCenter />)}
+      {layer('free', <CanvasPage key={`${projectPath || 'new'}-${pendingWorkflow?.id ?? 'idle'}-${pendingAsset?.id ?? 'none'}`} initialProject={initialProject ?? undefined} workflowPrompt={pendingWorkflow?.prompt} assetToInsert={pendingAsset?.asset} />)}
+      {layer('create', <Welcome onNew={handleNew} onOpen={handleOpen} recent={recent} />)}
+      {layer('drama', <AgentWorkbenchPage kind="drama" onBuildWorkflow={handleBuildWorkflow} />)}
+      {layer('market', <AgentWorkbenchPage kind="market" onBuildWorkflow={handleBuildWorkflow} />)}
+      {layer('assets', <AssetPage onInsert={handleInsertAsset} />)}
+      {layer('learn', <LearnPage onStartRoundtable={handleStartRoundtable} />)}
+      {layer('roundtable', <RoundtablePage initialArtifact={roundtableArtifact} initialQuestion={roundtableSeed} onOpenSettings={() => setActiveKey('settings')} onSendToCanvas={handleSendRoundtableToCanvas} onOpenSolution={handleOpenSolution} />)}
+      {solutionArtifact && layer('solution', <SolutionWorkbenchPage artifact={solutionArtifact} onBack={handleBackFromSolution} onContinueDiscussion={handleContinueDiscussion} />)}
+    </div>
   }
 
   return (
     <div className="app-shell">
-      <Sidebar active={activeKey} onSelect={setActiveKey} />
+      <Sidebar active={activeKey} onSelect={handleNavigate} />
       <div className="main-col">
         <TopBar title={TITLES[activeKey] ?? 'Magine'} />
         {renderContent()}

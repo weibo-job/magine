@@ -226,6 +226,18 @@ ipcMain.handle('project:get-recent', async () => readRecent())
 
 ipcMain.handle('project:add-recent', async (_e, p: string) => pushRecent(p))
 
+ipcMain.handle('demo:capture', async (event, payload: { x?: number; y?: number; width?: number; height?: number }) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win) throw new Error('找不到当前窗口')
+  const bounds = win.getContentBounds()
+  const x = Math.max(0, Math.min(Math.round(payload?.x || 0), bounds.width - 1))
+  const y = Math.max(0, Math.min(Math.round(payload?.y || 0), bounds.height - 1))
+  const width = Math.max(1, Math.min(Math.round(payload?.width || 1), bounds.width - x))
+  const height = Math.max(1, Math.min(Math.round(payload?.height || 1), bounds.height - y))
+  const image = await win.webContents.capturePage({ x, y, width, height })
+  return image.toDataURL()
+})
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,

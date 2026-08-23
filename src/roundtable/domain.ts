@@ -8,6 +8,8 @@ export interface RoundtableArtifact {
   mode: RoundtableMode
   roles: string[]
   answer: string
+  conclusion?: string
+  motionHtml?: string
   createdAt: string
   turns?: RoundtableTurn[]
   deliverableType?: DeliverableType
@@ -68,13 +70,15 @@ export const ROUNDTABLE_ROLES = [
   '交互设计师',
   '前端工程师',
   '反方审查员',
+  '动画导演',
 ]
 
 export function buildRoundtablePrompt(mode: RoundtableMode, roles: string[], question: string, turns: RoundtableTurn[] = []): string {
   const modeLabel = ROUNDTABLE_MODES.find((item) => item.id === mode)?.label ?? '主题梳理'
   const transcript = turns.length ? turns.map((turn) => `[第 ${turn.round} 轮·${turn.speaker}]\n${turn.content}`).join('\n\n') : '（第一轮讨论）'
   const pageOutput = classifyDeliverable(question, mode) === 'page' ? '\n如果这是页面 / 网站 / 小程序方案，最后再补充：\n【页面结构】页面层级和区域\n【组件清单】组件及其作用\n【交互流程】用户操作和状态变化\n【动效方案】进入、加载、成功、失败等动效\n【实现建议】React 组件拆分和技术注意事项' : ''
-  return `你是 Magine 的圆桌主持人。用户希望进行「${modeLabel}」。\n\n参与角色：${roles.join('、')}。\n\n用户主题：\n${question}\n\n历史讨论：\n${transcript}\n\n现在只推进一轮讨论，不要一次性结束整个主题，也不要把普通分歧直接丢给用户判断。请让不同席位围绕当前信息分别发言，互相补充、质疑和修正。\n\n当出现分歧时，先判断类型：事实、技术可行性、用户偏好或目标优先级。分别选择查证证据、设计最小验证、生成两个方案对比，或只追问一个关键目标问题。低风险分歧请基于证据和可逆性给出暂定推进方案。\n\n最后必须额外输出以下四行，字段名不要改：\n【分歧类型】事实分歧 / 技术可行性 / 用户偏好 / 目标优先级 / 无\n【处理动作】本轮应该采取的核验、实验、对比或澄清动作\n【暂定方案】在没有最终确认前可以先推进的方案、假设和回退方式\n【需要确认】只有不可逆、高成本或高风险事项才写需要用户确认；否则写暂不需要用户确认${pageOutput}\n\n只有用户明确说“确认方案 / 可以落地”时，才整理最终方案。`;
+  const motionOutput = roles.includes('动画导演') ? '\n\n动画导演席位还必须输出一个可运行的简易动效原型。原型只使用自包含 HTML、SVG、CSS 和原生 JavaScript，不引用外部网络资源；它用于让其他专家观看镜头、节奏和主要动作，不是最终视频。请将完整 HTML 放在以下代码围栏中：\n【动效原型】\n```html\n<!-- 完整可运行的 HTML -->\n```\n【动效说明】触发方式、镜头移动、主要动作、时长和可落地为 GSAP 的实现建议' : ''
+  return `你是 Magine 的圆桌主持人。用户希望进行「${modeLabel}」。\n\n参与角色：${roles.join('、')}。\n\n用户主题：\n${question}\n\n历史讨论：\n${transcript}\n\n这是企业开会式的协商圆桌，不是每个专家各说一句后由主持人拼接答案。每轮只推进一轮：每位专家必须先阅读并回应上一轮其他专家的意见，明确哪些观点同意、哪些观点保留，并提出具体优化建议。专家不能只重复自己的立场；如果上一轮已经形成方案，要继续检查它的漏洞、成本、用户价值和实现风险。主持人要把争议集中到少数可解决的问题上，并推动专家逐项收敛。\n\n当出现分歧时，先判断类型：事实、技术可行性、用户偏好或目标优先级。分别选择查证证据、设计最小验证、生成两个方案对比，或只追问一个关键目标问题。低风险分歧请基于证据和可逆性给出暂定推进方案。未达到全体同意前，不要假装已经达成共识，也不要直接整理最终方案。\n\n最后必须额外输出以下字段，字段名不要改：\n【专家回应】逐一说明每位专家对上一轮观点的同意、保留和优化建议\n【共识状态】已达成 / 未达成，并说明判断依据\n【仍有保留】列出尚未同意的专家和具体问题；如果没有，写无\n【下一轮优化】如果未达成共识，明确下一轮只解决什么；如果已达成，写可以进入最终确认\n【分歧类型】事实分歧 / 技术可行性 / 用户偏好 / 目标优先级 / 无\n【处理动作】本轮应该采取的核验、实验、对比或澄清动作\n【暂定方案】在没有最终确认前可以先推进的方案、假设和回退方式\n【需要确认】只有不可逆、高成本或高风险事项才写需要用户确认；否则写暂不需要用户确认${pageOutput}${motionOutput}\n\n只有当【共识状态】为“已达成”且用户明确说“确认方案 / 可以落地”时，才整理最终方案。`;
 }
 
 export function artifactToCanvasNodes(artifact: RoundtableArtifact) {
@@ -91,7 +95,7 @@ export function artifactToCanvasNodes(artifact: RoundtableArtifact) {
         id: `${base}-answer`,
         type: 'card',
         position: { x: 560, y: 180 },
-        data: { kind: 'LLM', label: `圆桌结论 · ${artifact.title}`, status: 'done', text: artifact.question, result: artifact.answer, nodeTypeId: 'llm', model: 'deepseek-v4-flash' },
+        data: { kind: 'LLM', label: `圆桌结论 · ${artifact.title}`, status: 'done', text: artifact.question, result: artifact.conclusion || artifact.answer, nodeTypeId: 'llm', model: 'deepseek-v4-flash' },
       },
     ],
     edges: [{ id: `${base}-edge`, source: `${base}-topic`, target: `${base}-answer`, type: 'default' }],

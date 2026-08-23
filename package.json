@@ -4,10 +4,23 @@
   "main": "dist-electron/main.js",
   "private": true,
   "type": "module",
-  "description": "Magine Canvas — 本地优先节点式 AI 创意工作流桌面客户端（S1.1 空壳）",
+  "description": "Magine — 本地优先的 AI 圆桌思辨、页面 Demo 与无限画布创作工作台",
+  "license": "MIT",
+  "homepage": "https://github.com/weibo-job/magine#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/weibo-job/magine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/weibo-job/magine/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:mac": "npm run build && electron-builder --mac --arm64",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -23,10 +36,32 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "electron-builder": "^25.1.8",
     "electron": "^33.2.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vite-plugin-electron": "^0.29.0",
     "vite-plugin-electron-renderer": "^0.14.6"
+  },
+  "build": {
+    "appId": "com.magine.canvas",
+    "productName": "Magine",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.graphics-design"
+    },
+    "dmg": {
+      "title": "Magine",
+      "writeUpdateInfo": false
+    },
+    "directories": {
+      "output": "release"
+    }
   }
 }

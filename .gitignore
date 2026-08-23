@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-electron/
+release/
+output/
 .playwright-cli/
 frames/
 .env

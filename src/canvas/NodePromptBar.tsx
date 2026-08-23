@@ -39,12 +39,18 @@ const PRESETS = [
 ]
 
 const VIDEO_STYLES = [
-  { icon: '🎬', name: '电影叙事', prompt: '电影级叙事风格，真实摄影质感，细腻光影，镜头语言清晰，节奏舒缓自然，画面有情绪递进' },
-  { icon: '📱', name: '短视频爆款', prompt: '短视频高留存风格，开场快速抓住注意力，节奏明快，镜头切换利落，主体突出，画面鲜明' },
-  { icon: '🌌', name: '梦幻奇幻', prompt: '梦幻奇幻风格，柔和发光，空气中有细小光粒，色彩绚丽，镜头缓慢推进，营造沉浸式氛围' },
-  { icon: '🧊', name: '高级广告', prompt: '高级商业广告风格，极简构图，产品级布光，材质细节清晰，镜头稳定克制，画面干净高级' },
-  { icon: '🎞️', name: '复古胶片', prompt: '复古胶片电影风格，颗粒质感，低饱和暖色调，轻微漏光，手持摄影感，怀旧氛围' },
-  { icon: '⚡', name: '赛博未来', prompt: '赛博朋克未来风格，霓虹灯光，冷暖强对比，雨夜反光，快速运镜，科技感与压迫感并存' },
+  { icon: '🎬', name: '电影叙事', image: '/style-previews/cinematic.png', prompt: '电影级叙事风格，真实摄影质感，细腻光影，镜头语言清晰，节奏舒缓自然，画面有情绪递进' },
+  { icon: '📱', name: '短视频爆款', image: '/style-previews/viral.png', prompt: '短视频高留存风格，开场快速抓住注意力，节奏明快，镜头切换利落，主体突出，画面鲜明' },
+  { icon: '🌌', name: '梦幻奇幻', image: '/style-previews/fantasy.png', prompt: '梦幻奇幻风格，柔和发光，空气中有细小光粒，色彩绚丽，镜头缓慢推进，营造沉浸式氛围' },
+  { icon: '🧊', name: '高级广告', image: '/style-previews/commercial.png', prompt: '高级商业广告风格，极简构图，产品级布光，材质细节清晰，镜头稳定克制，画面干净高级' },
+  { icon: '🎞️', name: '复古胶片', image: '/style-previews/film.png', prompt: '复古胶片电影风格，颗粒质感，低饱和暖色调，轻微漏光，手持摄影感，怀旧氛围' },
+  { icon: '⚡', name: '赛博未来', image: '/style-previews/cyber.png', prompt: '赛博朋克未来风格，霓虹灯光，冷暖强对比，雨夜反光，快速运镜，科技感与压迫感并存' },
+  { icon: '🌿', name: '日系清新', image: '/style-previews/japanese.png', prompt: '日系清新风格，柔和自然光，低饱和色彩，空气感，生活方式摄影，安静克制的情绪' },
+  { icon: '🌃', name: '港风霓虹', image: '/style-previews/hongkong.png', prompt: '港风霓虹风格，旧街巷，霓虹招牌光晕，潮湿路面，复古电影色彩，强烈城市氛围' },
+  { icon: '🖌️', name: '国风水墨', image: '/style-previews/ink.png', prompt: '国风水墨风格，宣纸肌理，墨色晕染，留白构图，东方意境，主体保留一处鲜明色彩' },
+  { icon: '📷', name: '纪录片纪实', image: '/style-previews/documentary.png', prompt: '纪录片纪实风格，真实抓拍，自然光，克制色彩，细节丰富，不摆拍，保留现场感' },
+  { icon: '🧸', name: '黏土定格', image: '/style-previews/clay.png', prompt: '黏土定格动画风格，手工黏土质感，微缩场景，柔和灯光，童趣但精致，逐格动画氛围' },
+  { icon: '✏️', name: '手绘插画', image: '/style-previews/illustration.png', prompt: '手绘插画风格，细腻笔触，平面色块，诗意构图，现代绘本质感，画面温暖有叙事感' },
 ]
 
 const PLACEHOLDER: Record<string, string> = {
@@ -163,9 +169,9 @@ export default function NodePromptBar({
   }, [showModel])
   useEffect(() => {
     if (showStyle && styleBtnRef.current) {
-      const r = styleBtnRef.current.getBoundingClientRect()
-      const w = 260
-      setStylePos({ left: Math.max(12, Math.min(window.innerWidth - w - 12, r.left)), top: r.top - 8 })
+      const w = Math.min(1120, window.innerWidth - 32)
+      const h = Math.min(720, window.innerHeight - 32)
+      setStylePos({ left: Math.max(16, (window.innerWidth - w) / 2), top: Math.max(16, (window.innerHeight - h) / 2) })
     } else setStylePos(null)
   }, [showStyle])
 
@@ -249,8 +255,15 @@ export default function NodePromptBar({
 
       {/* 模型面板：Portal 到 body，列出当前节点类型可用模型 */}
       {showStyle && stylePos && createPortal(
-        <div className="mc-style-panel" style={{ position: 'fixed', left: stylePos.left, top: stylePos.top, bottom: 'auto' }}>
-          <div className="mc-add-title">视频风格 · 选择模板</div>
+        <div className="mc-style-panel" style={{ position: 'fixed', left: stylePos.left, top: stylePos.top }}>
+          <div className="mc-style-head">
+            <div>
+              <div className="mc-add-title">视频风格 · 选择模板</div>
+              <span>同一场景预览，点击即可把风格加入提示词</span>
+            </div>
+            <button type="button" className="mc-style-close" onClick={() => setShowStyle(false)} aria-label="关闭风格面板">×</button>
+          </div>
+          <div className="mc-style-grid">
           {VIDEO_STYLES.map((style) => (
             <button
               key={style.name}
@@ -263,13 +276,11 @@ export default function NodePromptBar({
                 setShowStyle(false)
               }}
             >
-              <span className="mc-style-icon">{style.icon}</span>
-              <span>
-                <strong>{style.name}</strong>
-                <small>{style.prompt}</small>
-              </span>
+              <img src={style.image} alt="" />
+              <span className="mc-style-caption"><strong>{style.icon} {style.name}</strong><small>{style.prompt}</small></span>
             </button>
           ))}
+          </div>
         </div>,
         document.body,
       )}
