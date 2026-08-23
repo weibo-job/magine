@@ -9,7 +9,7 @@ export const DOUBAO_SEEDREAM_MODEL = 'doubao-seedream-5-0-pro-260628'
 
 export interface SeedreamOptions {
   seed?: number
-  resolution?: 'standard' | 'high'
+  resolution?: 'standard' | 'high' | '4k'
 }
 
 export async function seedreamGenerate(

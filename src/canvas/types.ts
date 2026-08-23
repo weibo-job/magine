@@ -30,7 +30,7 @@ export interface NodeCardData {
   model?: string
   duration?: number
   seed?: number
-  resolution?: 'standard' | 'high'
+  resolution?: 'standard' | 'high' | '4k'
   /** 图像编辑节点（edit）的编辑模式：inpaint/outpaint/style/lighting/lens/portrait/makeup */
   editMode?: string
   agentThink?: string

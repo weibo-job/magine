@@ -10,7 +10,7 @@ export const DOUBAO_SEEDANCE_MODEL = 'doubao-seedance-2-0-260128'
 export interface SeedanceOptions {
   duration?: number
   seed?: number
-  resolution?: 'standard' | 'high'
+  resolution?: 'standard' | 'high' | '4k'
 }
 
 const POLL_INTERVAL = 3000 // 每 3 秒查一次

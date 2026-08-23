@@ -14,16 +14,24 @@ interface Props {
   text: string
   kind: string
   ratio: string
+  resolution?: 'standard' | 'high' | '4k'
   model?: string
   modelOptions?: ModelOpt[]
   onPatchText: (t: string) => void
   onChangeRatio: (r: string) => void
+  onChangeResolution: (r: 'standard' | 'high' | '4k') => void
   onChangeModel: (m: string) => void
   onAddFile: (files: File[]) => void
 }
 
-// 4 个比例（小云雀口径，删除 9:18 这种非标）
-const RATIOS = ['9:16', '16:9', '3:4', '4:3']
+const RATIOS = ['auto', '16:9', '21:9', '9:16', '4:3', '3:4', '1:1']
+const RESOLUTIONS: { id: 'standard' | 'high' | '4k'; label: string }[] = [
+  { id: 'standard', label: '1K' },
+  { id: 'high', label: '2K' },
+  { id: '4k', label: '4K' },
+]
+
+const RATIO_LABELS: Record<string, string> = { auto: '自动' }
 
 // 9 条常用预设提示词
 const PRESETS = [
@@ -64,21 +72,22 @@ const PLACEHOLDER: Record<string, string> = {
 
 export default function NodePromptBar({
   selectedId, text, kind, ratio, model, modelOptions = [],
-  onPatchText, onChangeRatio, onChangeModel, onAddFile,
+  resolution = 'standard', onPatchText, onChangeRatio, onChangeResolution, onChangeModel, onAddFile,
 }: Props) {
   const [showPreset, setShowPreset] = useState(false)
   const [savedPresets, setSavedPresets] = useState<{ name: string; prompt: string; icon: string; cls: string }[]>([])
-  const [showRatio, setShowRatio] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [showModel, setShowModel] = useState(false)
   const [showStyle, setShowStyle] = useState(false)
   const [presetPos, setPresetPos] = useState<{ left: number; top: number } | null>(null)
-  const [ratioPos, setRatioPos] = useState<{ left: number; top: number } | null>(null)
+  const [settingsPos, setSettingsPos] = useState<{ left: number; top: number } | null>(null)
   const [modelPos, setModelPos] = useState<{ left: number; top: number } | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const presetBtnRef = useRef<HTMLButtonElement>(null)
   const ratioBtnRef = useRef<HTMLButtonElement>(null)
+  const resolutionBtnRef = useRef<HTMLButtonElement>(null)
   const modelBtnRef = useRef<HTMLButtonElement>(null)
   const styleBtnRef = useRef<HTMLButtonElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
@@ -136,14 +145,14 @@ export default function NodePromptBar({
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       const t = e.target as HTMLElement
-      if (showRatio && ratioBtnRef.current && !ratioBtnRef.current.contains(t) && !t.closest('.mc-ratio-panel')) setShowRatio(false)
+      if (showSettings && ratioBtnRef.current && resolutionBtnRef.current && !ratioBtnRef.current.contains(t) && !resolutionBtnRef.current.contains(t) && !t.closest('.mc-media-panel')) setShowSettings(false)
       if (showPreset && presetBtnRef.current && !presetBtnRef.current.contains(t) && !t.closest('.mc-preset-panel')) setShowPreset(false)
       if (showModel && modelBtnRef.current && !modelBtnRef.current.contains(t) && !t.closest('.mc-model-panel')) setShowModel(false)
       if (showStyle && styleBtnRef.current && !styleBtnRef.current.contains(t) && !t.closest('.mc-style-panel')) setShowStyle(false)
     }
     document.addEventListener('click', onDoc)
     return () => document.removeEventListener('click', onDoc)
-  }, [showPreset, showRatio, showModel, showStyle])
+  }, [showPreset, showSettings, showModel, showStyle])
 
   // 打开面板时记录 rect（用于 portal 位置）
   useEffect(() => {
@@ -154,12 +163,12 @@ export default function NodePromptBar({
     } else setPresetPos(null)
   }, [showPreset])
   useEffect(() => {
-    if (showRatio && ratioBtnRef.current) {
-      const r = ratioBtnRef.current.getBoundingClientRect()
-      const w = 180
-      setRatioPos({ left: Math.max(12, Math.min(window.innerWidth - w - 12, r.left)), top: r.top - 8 })
-    } else setRatioPos(null)
-  }, [showRatio])
+    if (showSettings) {
+      const w = Math.min(880, window.innerWidth - 24)
+      const h = Math.min(560, window.innerHeight - 24)
+      setSettingsPos({ left: Math.max(12, (window.innerWidth - w) / 2), top: Math.max(12, (window.innerHeight - h) / 2) })
+    } else setSettingsPos(null)
+  }, [showSettings])
   useEffect(() => {
     if (showModel && modelBtnRef.current) {
       const r = modelBtnRef.current.getBoundingClientRect()
@@ -238,11 +247,13 @@ export default function NodePromptBar({
           <button
             ref={ratioBtnRef}
             className="mc-pt-btn"
-            title="画面比例"
-            onClick={() => setShowRatio((v) => !v)}
-          >📱 {ratio} <span className="caret">▼</span></button>
+            title="清晰度与画面比例"
+            onClick={() => setShowSettings((v) => !v)}
+          >📱 {ratio === 'auto' ? '自动' : ratio} <span className="caret">▼</span></button>
         </div>
-        <button className="mc-pt-btn">1K</button>
+        <button ref={resolutionBtnRef} className="mc-pt-btn" title="清晰度与画面比例" onClick={() => setShowSettings((v) => !v)}>
+          {RESOLUTIONS.find((item) => item.id === resolution)?.label ?? '1K'}
+        </button>
         <div className="mc-pt-grow" />
         <button
           ref={presetBtnRef}
@@ -304,19 +315,39 @@ export default function NodePromptBar({
         document.body,
       )}
 
-      {/* 比例面板：Portal 到 body，最高层 fixed 定位，脱离任何父级 overflow 裁剪 */}
-      {showRatio && ratioPos && createPortal(
-        <div className="mc-ratio-panel" style={{ position: 'fixed', left: ratioPos.left, top: ratioPos.top, bottom: 'auto' }}>
-          {RATIOS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`mc-ratio-item${r === ratio ? ' active' : ''}`}
-              onClick={() => { onChangeRatio(r); setShowRatio(false) }}
-            >
-              <span className="mc-ratio-name">{r}</span>
-            </button>
-          ))}
+      {/* 清晰度与比例面板：统一入口，Portal 到 body，避免被画布容器裁剪 */}
+      {showSettings && settingsPos && createPortal(
+        <div className="mc-media-panel" style={{ position: 'fixed', left: settingsPos.left, top: settingsPos.top }}>
+          <div className="mc-media-head">
+            <div>
+              <div className="mc-media-title">生成设置</div>
+              <span>选择输出清晰度与画面比例</span>
+            </div>
+            <button type="button" className="mc-style-close" onClick={() => setShowSettings(false)} aria-label="关闭生成设置">×</button>
+          </div>
+          <section className="mc-media-section">
+            <h3>清晰度</h3>
+            <div className="mc-resolution-grid">
+              {RESOLUTIONS.map((item) => (
+                <button key={item.id} type="button" className={`mc-resolution-item${item.id === resolution ? ' active' : ''}`} onClick={() => onChangeResolution(item.id)}>
+                  <strong>{item.label}</strong>
+                  {item.id === resolution && <span className="mc-select-check">✓</span>}
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="mc-media-section">
+            <h3>比例</h3>
+            <div className="mc-ratio-grid">
+              {RATIOS.map((r) => (
+                <button key={r} type="button" className={`mc-ratio-item${r === ratio ? ' active' : ''}`} onClick={() => { onChangeRatio(r); setShowSettings(false) }}>
+                  <span className={`mc-ratio-icon ratio-${r.replace(':', '-')}`} aria-hidden="true" />
+                  <span className="mc-ratio-name">{RATIO_LABELS[r] ?? r}</span>
+                  {r === ratio && <span className="mc-select-check">✓</span>}
+                </button>
+              ))}
+            </div>
+          </section>
         </div>,
         document.body,
       )}

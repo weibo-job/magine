@@ -953,6 +953,7 @@ function CanvasInner({
           text={selectedData.text ?? ''}
           kind={selectedData.nodeTypeId ?? ''}
           ratio={(selectedData.ratio as string | undefined) ?? getDefaultRatio(selectedData.nodeTypeId)}
+          resolution={(selectedData.resolution as 'standard' | 'high' | '4k' | undefined) ?? 'standard'}
           model={(selectedData.model as string | undefined) ?? getDefaultModel(selectedData.nodeTypeId)}
           modelOptions={getModelOptions(selectedData.nodeTypeId)}
           onPatchText={(t) =>
@@ -968,10 +969,15 @@ function CanvasInner({
                   ? {
                       ...n,
                       data: { ...n.data, ratio: r },
-                      style: { ...n.style, width: sz.w, height: sz.h },
+                      ...(sz ? { style: { ...n.style, width: sz.w, height: sz.h } } : {}),
                     }
                   : n,
               ),
+            )
+          }}
+          onChangeResolution={(resolution) => {
+            setNodes((nds) =>
+              nds.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, resolution } } : n)),
             )
           }}
           onChangeModel={(m) =>

@@ -43,10 +43,13 @@ export const getModelLabel = (kind?: string, id?: string) => {
 
 // 小云雀风 · 比例 → 节点尺寸（9:16 竖 220×391 / 16:9 横 360×202 / 3:4 竖 240×320 / 4:3 横 300×225）
 export const RATIO_SIZE: Record<string, { w: number; h: number }> = {
+  auto: { w: 300, h: 300 },
   '9:16': { w: 220, h: 391 },
   '16:9': { w: 360, h: 202 },
+  '21:9': { w: 380, h: 163 },
   '3:4': { w: 240, h: 320 },
   '4:3': { w: 300, h: 225 },
+  '1:1': { w: 300, h: 300 },
 }
 
 export const DEFAULT_RATIO: Record<string, string> = {
@@ -85,6 +88,8 @@ export function ratioToSeedreamSize(ratio?: string): string {
       return '1024x1024'
     case '16:9':
       return '1792x1024'
+    case '21:9':
+      return '1792x768'
     case '9:16':
       return '1024x1792'
     case '4:3':
