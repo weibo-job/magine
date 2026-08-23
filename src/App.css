@@ -1725,7 +1725,9 @@
 .mc-pt-btn.round { width: 34px; height: 34px; padding: 0; justify-content: center; border-radius: 50%; font-size: 16px; }
 .mc-pt-btn .caret { font-size: 9px; color: var(--text-tertiary); }
 .mc-pt-grow { flex: 1; }
-.mc-duration-select { appearance: none; min-width: 76px; padding-right: 12px; text-align: center; }
+.mc-duration-control { display: inline-flex; align-items: center; gap: 8px; min-width: 142px; height: 38px; box-sizing: border-box; padding: 0 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-surface); color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
+.mc-duration-control span { min-width: 44px; }
+.mc-duration-control input { width: 70px; accent-color: var(--purple); cursor: pointer; }
 .mc-preset-wrap { position: relative; }
 .mc-preset-panel {
   position: absolute;

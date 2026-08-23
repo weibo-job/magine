@@ -254,10 +254,18 @@ export default function NodePromptBar({
           >📱 {ratio === 'auto' ? '自动' : ratio} <span className="caret">▼</span></button>
         </div>
         {kind === 'video' && (
-          <select className="mc-pt-btn mc-duration-select" title="视频时长" value={duration} onChange={(e) => onChangeDuration(Number(e.target.value))}>
-            <option value={5}>⏱ 5秒</option>
-            <option value={10}>⏱ 10秒</option>
-          </select>
+          <label className="mc-duration-control" title="视频时长">
+            <span>⏱ {duration}秒</span>
+            <input
+              type="range"
+              min={5}
+              max={10}
+              step={1}
+              value={Math.min(10, Math.max(5, duration))}
+              aria-label="视频时长，5 到 10 秒"
+              onChange={(e) => onChangeDuration(Number(e.target.value))}
+            />
+          </label>
         )}
         <button ref={resolutionBtnRef} className="mc-pt-btn" title="清晰度与画面比例" onClick={() => setShowSettings((v) => !v)}>
           {RESOLUTIONS.find((item) => item.id === resolution)?.label ?? '1K'}
