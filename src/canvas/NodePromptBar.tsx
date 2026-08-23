@@ -15,11 +15,13 @@ interface Props {
   kind: string
   ratio: string
   resolution?: 'standard' | 'high' | '4k'
+  duration?: number
   model?: string
   modelOptions?: ModelOpt[]
   onPatchText: (t: string) => void
   onChangeRatio: (r: string) => void
   onChangeResolution: (r: 'standard' | 'high' | '4k') => void
+  onChangeDuration: (duration: number) => void
   onChangeModel: (m: string) => void
   onAddFile: (files: File[]) => void
 }
@@ -72,7 +74,7 @@ const PLACEHOLDER: Record<string, string> = {
 
 export default function NodePromptBar({
   selectedId, text, kind, ratio, model, modelOptions = [],
-  resolution = 'standard', onPatchText, onChangeRatio, onChangeResolution, onChangeModel, onAddFile,
+  resolution = 'standard', duration = 5, onPatchText, onChangeRatio, onChangeResolution, onChangeDuration, onChangeModel, onAddFile,
 }: Props) {
   const [showPreset, setShowPreset] = useState(false)
   const [savedPresets, setSavedPresets] = useState<{ name: string; prompt: string; icon: string; cls: string }[]>([])
@@ -251,6 +253,12 @@ export default function NodePromptBar({
             onClick={() => setShowSettings((v) => !v)}
           >📱 {ratio === 'auto' ? '自动' : ratio} <span className="caret">▼</span></button>
         </div>
+        {kind === 'video' && (
+          <select className="mc-pt-btn mc-duration-select" title="视频时长" value={duration} onChange={(e) => onChangeDuration(Number(e.target.value))}>
+            <option value={5}>⏱ 5秒</option>
+            <option value={10}>⏱ 10秒</option>
+          </select>
+        )}
         <button ref={resolutionBtnRef} className="mc-pt-btn" title="清晰度与画面比例" onClick={() => setShowSettings((v) => !v)}>
           {RESOLUTIONS.find((item) => item.id === resolution)?.label ?? '1K'}
         </button>
