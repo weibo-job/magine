@@ -49,6 +49,7 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
   const [references, setReferences] = useState<ReferenceAsset[]>([])
   const [showIntervene, setShowIntervene] = useState(false)
   const [thinking, setThinking] = useState(false)
+  const [discussionClosed, setDiscussionClosed] = useState(false)
   const [composerCollapsed, setComposerCollapsed] = useState(draft?.sessionStarted ?? false)
   const [sessionStarted, setSessionStarted] = useState(draft?.sessionStarted ?? false)
   const [settled, setSettled] = useState(Boolean(draft?.settled && draft?.conclusion))
@@ -66,6 +67,7 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
   const fileRef = useRef<HTMLInputElement>(null)
   const demoFrameRef = useRef<HTMLIFrameElement>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const sessionIdRef = useRef(initialArtifact?.id || `draft-${Date.now()}`)
 
   useEffect(() => {
     if (!initialArtifact) return
@@ -79,6 +81,7 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
     setMotionHtml(initialArtifact.motionHtml || '')
     setMyThought(initialArtifact.demoFeedback ? `基于当前页面 Demo 继续讨论：\n${initialArtifact.demoFeedback}` : '')
     setSessionStarted(true)
+    setDiscussionClosed(false)
     setSettled(Boolean(initialArtifact.conclusion))
     setError('')
   }, [initialArtifact?.id])
@@ -94,9 +97,11 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
     setDemoHtml('')
     setDemoFeedback('')
     setSessionStarted(false)
+    setDiscussionClosed(false)
     setSettled(false)
     setComposerCollapsed(false)
     setError('')
+    sessionIdRef.current = `draft-${Date.now()}`
     localStorage.removeItem(DRAFT_KEY)
   }, [initialQuestion?.id])
 
@@ -122,6 +127,12 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
     const role = roleInput.trim()
     if (!role || customRoles.includes(role) || ROUNDTABLE_ROLES.includes(role)) return
     const next = [...customRoles, role].slice(-12); setCustomRoles(next); setRoles((current) => [...current, role]); setRoleInput(''); localStorage.setItem('magine.roundtable.custom-roles', JSON.stringify(next))
+  }
+  function removeCustomRole(role: string) {
+    const next = customRoles.filter((item) => item !== role)
+    setCustomRoles(next)
+    setRoles((current) => current.filter((item) => item !== role))
+    localStorage.setItem('magine.roundtable.custom-roles', JSON.stringify(next))
   }
   function chooseMode(next: RoundtableMode) {
     const item = ROUNDTABLE_MODES.find((candidate) => candidate.id === next)
@@ -183,7 +194,7 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
     }
     const materialContext = references.length ? `\n\n参考素材：${references.map((item) => item.name).join('、')}\n用户对素材的说明：${referenceNote || '请参考图片的布局、风格和交互。'}\n视觉分析：${visualContext}` : ''
     const demoContext = demoHtml ? `\n\n当前页面 Demo 已回传圆桌，并在右侧预览区渲染。请把它作为本轮讨论对象，不要回复“看不到 Demo”。\n用户对 Demo 的反馈：${demoFeedback || '请检查 Demo 是否符合方案。'}\nDemo 视觉分析：${demoVisualContext || '当前运行环境未提供截图，请基于 Demo HTML/CSS 分析，并明确这是代码推断。'}\nDemo HTML（最多读取前 24000 字；如果内容被截断，基于可见部分继续分析）：\n${demoHtml.slice(0, 24000)}` : ''
-    const controller = new AbortController(); controllerRef.current = controller; setThinking(true); setSessionStarted(true); setSettled(false); setConclusion(''); setError(''); setStreamText('')
+    const controller = new AbortController(); controllerRef.current = controller; setThinking(true); setDiscussionClosed(false); setSessionStarted(true); setSettled(false); setConclusion(''); setError(''); setStreamText('')
     if (userTurn) { setTurns(context); setMyThought('') }
     try {
       const result = await deepseekChatStream(key, [{ role: 'user', content: buildRoundtablePrompt(mode, roles, `${prompt}${materialContext}${demoContext}`, context) }], { onText: (delta) => setStreamText((current) => current + delta) }, getKey('deepseek_model') || undefined, controller.signal)
@@ -191,7 +202,12 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
         const nextMotionHtml = extractMotionHtml(result.text)
         if (nextMotionHtml) { setMotionHtml(nextMotionHtml); setMotionPreviewKey((value) => value + 1) }
         setDisputeSignal(extractDisputeSignal(result.text))
-        setTurns((current) => [...current, { id: `round-${Date.now()}`, round: current.length + 1, speaker: `圆桌 · 第 ${current.length + 1} 轮`, role: 'roundtable', content: result.text.trim() }])
+        const nextTurn = { id: `round-${Date.now()}`, round: turns.length + 1, speaker: `圆桌 · 第 ${turns.length + 1} 轮`, role: 'roundtable' as const, content: result.text.trim() }
+        const nextTurns = [...context, nextTurn]
+        setTurns(nextTurns)
+        const progressArtifact: RoundtableArtifact = { id: sessionIdRef.current, title: prompt.slice(0, 24), question: prompt, mode, roles, answer: nextTurns.map((turn) => `【${turn.speaker}】\n${turn.content}`).join('\n\n'), conclusion: '', motionHtml: nextMotionHtml || motionHtml, turns: nextTurns, demoHtml, demoFeedback, demoIteration: initialArtifact?.demoIteration, deliverableType: classifyDeliverable(prompt, mode), createdAt: initialArtifact?.createdAt || new Date().toISOString() }
+        saveRoundtableArtifact(progressArtifact)
+        setHistory(loadRoundtableArtifacts())
       }
       setStreamText('')
     } catch (err) {
@@ -222,7 +238,7 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
       const result = await deepseekChat(key, [{ role: 'user', content: `你是圆桌主持人。用户已经明确确认方案可以落地，请根据下面的主题和完整讨论整理最终结论。不要继续发散，不要提出新的问题。输出结构固定为：\n\n【最终判断】一句话说明最终采用什么。\n【落地方案】列出已经确定的结构、功能或执行步骤。\n【关键取舍】说明放弃了什么，以及为什么。\n【下一步】给出最先执行的 3 个动作。\n\n主题：${question.trim()}\n\n完整讨论：\n${answer}` }], getKey('deepseek_model') || undefined)
       const finalConclusion = result.trim() || '本轮讨论已确认，可以按当前方案进入落地。'
       setConclusion(finalConclusion)
-      const artifact: RoundtableArtifact = { id: initialArtifact?.id || `${Date.now()}`, title: question.trim().slice(0, 24), question: question.trim(), mode, roles, answer, conclusion: finalConclusion, motionHtml, turns, demoHtml, demoFeedback, demoIteration: initialArtifact?.demoIteration, deliverableType: classifyDeliverable(question, mode), createdAt: initialArtifact?.createdAt || new Date().toISOString() }
+      const artifact: RoundtableArtifact = { id: sessionIdRef.current, title: question.trim().slice(0, 24), question: question.trim(), mode, roles, answer, conclusion: finalConclusion, motionHtml, turns, demoHtml, demoFeedback, demoIteration: initialArtifact?.demoIteration, deliverableType: classifyDeliverable(question, mode), createdAt: initialArtifact?.createdAt || new Date().toISOString() }
       saveRoundtableArtifact(artifact); setHistory(loadRoundtableArtifacts()); setSettled(true)
     } catch (err) { setError((err as Error).message || '整理最终结论失败') }
     finally { setConclusionBusy(false) }
@@ -230,12 +246,13 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
   function sendCurrentToCanvas() {
     if (!question.trim() || !turns.length) return
     const answer = turns.map((turn) => `【${turn.speaker}】\n${turn.content}`).join('\n\n')
-    const artifact: RoundtableArtifact = { id: initialArtifact?.id || `${Date.now()}`, title: question.trim().slice(0, 24), question: question.trim(), mode, roles, answer, conclusion, motionHtml, turns, demoHtml, demoFeedback, demoIteration: initialArtifact?.demoIteration, deliverableType: classifyDeliverable(question, mode), createdAt: initialArtifact?.createdAt || new Date().toISOString() }
+    const artifact: RoundtableArtifact = { id: sessionIdRef.current, title: question.trim().slice(0, 24), question: question.trim(), mode, roles, answer, conclusion, motionHtml, turns, demoHtml, demoFeedback, demoIteration: initialArtifact?.demoIteration, deliverableType: classifyDeliverable(question, mode), createdAt: initialArtifact?.createdAt || new Date().toISOString() }
     if (artifact.deliverableType === 'page') onOpenSolution(artifact)
     else onSendToCanvas(artifact)
   }
-  function restore(item: RoundtableArtifact) { setQuestion(item.question); setMode(item.mode); setRoles(item.roles); setTurns(item.turns ?? [{ id: `legacy-${item.id}`, round: 1, speaker: '历史圆桌', role: 'roundtable', content: item.answer }]); setDemoHtml(item.demoHtml || ''); setDemoFeedback(item.demoFeedback || ''); setConclusion(item.conclusion || ''); setMotionHtml(item.motionHtml || ''); setMotionPreviewKey((value) => value + 1); setSessionStarted(true); setSettled(Boolean(item.conclusion)); setError('') }
-  function reset() { stopRound(); setSessionStarted(false); setComposerCollapsed(false); setSettled(false); setTurns([]); setStreamText(''); setQuestion(''); setReferences([]); setReferenceNote(''); setReferenceAnalysis(''); setMyThought(''); setDemoHtml(''); setDemoFeedback(''); setConclusion(''); setMotionHtml(''); setDisputeSignal(extractDisputeSignal('')); setError(''); localStorage.removeItem(DRAFT_KEY) }
+  function restore(item: RoundtableArtifact) { setQuestion(item.question); setMode(item.mode); setRoles(item.roles); setTurns(item.turns ?? [{ id: `legacy-${item.id}`, round: 1, speaker: '历史圆桌', role: 'roundtable', content: item.answer }]); setDemoHtml(item.demoHtml || ''); setDemoFeedback(item.demoFeedback || ''); setConclusion(item.conclusion || ''); setMotionHtml(item.motionHtml || ''); setMotionPreviewKey((value) => value + 1); setDiscussionClosed(false); setSessionStarted(true); setSettled(Boolean(item.conclusion)); setError('') }
+  function closeDiscussion() { stopRound(); setThinking(false); setStreamText(''); setShowIntervene(false); setDiscussionClosed(true); setSessionStarted(false); setComposerCollapsed(false) }
+  function reset() { stopRound(); setDiscussionClosed(false); setSessionStarted(false); setComposerCollapsed(false); setSettled(false); setTurns([]); setStreamText(''); setQuestion(''); setReferences([]); setReferenceNote(''); setReferenceAnalysis(''); setMyThought(''); setDemoHtml(''); setDemoFeedback(''); setConclusion(''); setMotionHtml(''); setDisputeSignal(extractDisputeSignal('')); setError(''); sessionIdRef.current = `draft-${Date.now()}`; localStorage.removeItem(DRAFT_KEY) }
   function applyDisputeAction(action: string) { setMyThought(action); setShowIntervene(true) }
   function scrollToLatestDiscussion() { transcriptRef.current?.scrollTo({ top: transcriptRef.current.scrollHeight, behavior: 'smooth' }) }
 
@@ -252,16 +269,16 @@ export default function RoundtablePage({ onSendToCanvas, onOpenSolution, onOpenS
         <div className="mode-list">{ROUNDTABLE_MODES.map((item) => <button key={item.id} className={item.id === mode ? 'selected' : ''} onClick={() => chooseMode(item.id)}><b>{item.label}</b><small>{item.hint}</small><em>{item.id === mode ? '当前模式' : '切换并填入主题'}</em></button>)}</div>
         <div className="roundtable-policy"><span className="policy-dot" />主持人会先处理分歧，只有高风险事项才请求你确认</div>
         <div className="section-heading compact"><div><span className="eyebrow">02 / SEATS</span><h2>选择席位</h2></div><span className="muted">{roles.length} 位角色</span></div>
-        <div className="role-list">{allRoles.map((role) => <button key={role} title={role === '动画导演' ? '生成可播放的简易动效预览，供圆桌一起评审镜头和节奏' : undefined} className={roles.includes(role) ? 'selected' : ''} onClick={() => toggleRole(role)} disabled={sessionStarted}>{role}{customRoles.includes(role) && <small>自定义</small>}</button>)}</div>
+        <div className="role-list">{allRoles.map((role) => { const custom = customRoles.includes(role); return <button key={role} title={role === '动画导演' ? '生成可播放的简易动效预览，供圆桌一起评审镜头和节奏' : undefined} className={roles.includes(role) ? 'selected' : ''} onClick={() => toggleRole(role)} disabled={sessionStarted}>{role}{custom && <><small>自定义</small><span className="custom-role-remove" role="button" tabIndex={sessionStarted ? -1 : 0} aria-label={`删除专家${role}`} onClick={(event) => { event.stopPropagation(); if (!sessionStarted) removeCustomRole(role) }} onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && !sessionStarted) { event.preventDefault(); event.stopPropagation(); removeCustomRole(role) } }}>×</span></>}</button> })}</div>
         {roles.includes('动画导演') && <div className="role-tip">动画导演会输出可播放的简易动效预览，供专家一起评审镜头、节奏和主要动作。</div>}
         <div className="custom-role-form"><input value={roleInput} onChange={(e) => setRoleInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addCustomRole() }} disabled={sessionStarted} placeholder="添加一个席位，例如：品牌顾问" /><button onClick={addCustomRole} disabled={sessionStarted || !roleInput.trim()}>添加席位</button></div>
         {references.length > 0 && <div className="reference-box"><div className="reference-strip">{references.map((item) => <div key={item.id} className="reference-chip"><img src={item.dataUrl} alt="" /><span>{item.name}</span><button onClick={() => { setReferences((current) => current.filter((ref) => ref.id !== item.id)); setReferenceAnalysis('') }}>×</button></div>)}</div><textarea className="reference-note" value={referenceNote} onChange={(e) => setReferenceNote(e.target.value)} placeholder="告诉视觉分析器你特别关注什么，例如：参考这个网站的布局和动效" /><div className="reference-actions"><button className="reference-analyze" onClick={() => { void analyzeReferences() }} disabled={analyzingReferences}>{analyzingReferences ? '正在分析参考图…' : referenceAnalysis ? '重新分析参考图' : '分析参考图'}</button>{referenceAnalysis && <span className="reference-ready">视觉分析已加入圆桌</span>}</div>{referenceAnalysis && <div className="reference-analysis">{referenceAnalysis}</div>}</div>}
         {error && <div className="roundtable-error">{error}</div>}
-        {!sessionStarted ? <button className="primary roundtable-start" disabled={!question.trim()} onClick={() => void runRound()}>开始第一轮</button> : <button className="primary roundtable-start" disabled={thinking || !myThought.trim()} onClick={() => void runRound(myThought)}>加入观点并继续一轮</button>}
+        {!sessionStarted ? <button className="primary roundtable-start" disabled={!question.trim()} onClick={() => void runRound()}>{turns.length ? '继续讨论' : '开始第一轮'}</button> : <button className="primary roundtable-start" disabled={thinking || !myThought.trim()} onClick={() => void runRound(myThought)}>加入观点并继续一轮</button>}
         {sessionStarted && <button className="roundtable-reset" onClick={reset}>结束本次讨论，重新开始</button>}
       </div>}
       <div className="roundtable-result">
-        <div className="section-heading"><div><span className="eyebrow">03 / LIVE TABLE</span><h2>实时讨论</h2>{demoHtml && <span className="roundtable-focus-label">当前讨论对象：页面 Demo · 第 {initialArtifact?.demoIteration || 1} 版</span>}</div><span className="roundtable-round-label">{turns.length ? `${turns.length} 个发言` : '等待开始'}</span></div>
+        <div className="section-heading"><div><span className="eyebrow">03 / LIVE TABLE</span><h2>实时讨论</h2>{demoHtml && <span className="roundtable-focus-label">当前讨论对象：页面 Demo · 第 {initialArtifact?.demoIteration || 1} 版</span>}</div><div className="roundtable-result-actions"><span className="roundtable-round-label">{turns.length ? `${turns.length} 个发言` : '等待开始'}</span>{!discussionClosed && (sessionStarted || thinking || turns.length > 0) && <button className="roundtable-close" onClick={closeDiscussion}>关闭讨论</button>}</div></div>
         <div ref={transcriptRef} className="roundtable-transcript" aria-live="polite">
           {!turns.length && !thinking && <div className="roundtable-empty"><span>◌</span><b>圆桌会在这里一轮轮展开</b><p>你可以随时暂停并加入新的想法。</p></div>}
           {turns.map((turn) => <article key={turn.id} className={`roundtable-turn ${turn.role === 'user' ? 'user-turn' : ''}`}><div className="turn-meta"><b>{turn.speaker}</b><span>第 {turn.round} 轮</span></div><div className="turn-content">{turn.content}</div></article>)}

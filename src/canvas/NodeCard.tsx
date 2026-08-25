@@ -351,6 +351,11 @@ export default function NodeCard({ id, data, selected }: NodeProps) {
   const isPanorama = d.nodeTypeId === 'panorama'
   const isTopaz = d.nodeTypeId === 'topaz'
   const isFace = d.nodeTypeId === 'face'
+  const imageList = d.results?.length
+    ? d.results
+    : !d.imageUrls?.length && d.imageUrl
+      ? [d.imageUrl]
+      : []
 
   // S3.6：三节点共用的"取图"解析：优先上游图像节点已生成图，其次上游素材节点的图片 dataURL，再次本节点自带 imageUrl
   const resolveImageSource = (): string | undefined => {
@@ -706,7 +711,7 @@ export default function NodeCard({ id, data, selected }: NodeProps) {
   })
 
   return (
-    <div className={`node-card node-card-${d.nodeTypeId}${isImage ? ' node-card-image' : ''}`}>
+    <div className={`node-card node-card-${d.nodeTypeId}${isImage ? ' node-card-image' : ''}${isImage && imageList.length === 0 ? ' is-empty-image' : ''}`}>
       <NodeResizer
         isVisible={Boolean(selected)}
         minWidth={d.nodeTypeId === 'llm' ? 300 : 240}
@@ -789,6 +794,15 @@ export default function NodeCard({ id, data, selected }: NodeProps) {
                 {loading ? '生图中…' : '生图'}
               </button>
             )}
+            {isImage && imageList.length === 0 && (
+              <div className="node-image-empty">
+                <span className="node-image-empty-icon">▧</span>
+                <div className="node-image-empty-actions">
+                  <button type="button" onClick={() => document.dispatchEvent(new CustomEvent('mc-open-file-picker'))}>上传</button>
+                  <span>资产库</span>
+                </div>
+              </div>
+            )}
             {isEdit && (
               <>
                 <select
@@ -825,19 +839,22 @@ export default function NodeCard({ id, data, selected }: NodeProps) {
                 <button className="node-result-arrow" onClick={() => switchResult(1)} disabled={loading} aria-label="下一张">›</button>
               </div>
             )}
-            {d.imageUrl && (
+            {imageList.length > 0 && (
               <div className="node-img">
-                <img
-                  className="node-img-el"
-                  src={d.imageUrl}
-                  alt="生成结果"
-                  onClick={() => setPreviewUrl(d.imageUrl!)}
-                />
+                <div className={imageList.length > 1 ? 'node-upload-grid' : ''}>
+                  {imageList.map((url, index) => (
+                    <img
+                      key={`${url.slice(0, 32)}-${index}`}
+                      className="node-img-el"
+                      src={url}
+                      alt={`参考图 ${index + 1}`}
+                      onClick={() => setPreviewUrl(url)}
+                    />
+                  ))}
+                </div>
                 <div className="node-img-actions">
-                  <button onClick={() => setPreviewUrl(d.imageUrl!)}>预览</button>
-                  <button onClick={() => downloadImage(d.imageUrl!, `seedream-${Date.now()}.png`)}>
-                    下载
-                  </button>
+                  <button onClick={() => setPreviewUrl(imageList[0])}>预览</button>
+                  <button onClick={() => downloadImage(imageList[0], `magine-image-${Date.now()}.png`)}>下载</button>
                 </div>
               </div>
             )}

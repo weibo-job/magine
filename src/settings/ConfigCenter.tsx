@@ -1,7 +1,7 @@
 // S2.1 模型密钥配置中心（BYOK + 本地加密）+ S2.2 路由预览 + S2.4 解锁写入全局 vault
 // 分模态 Tab（图/画质/视频/LLM）+ 预设（火山 Seedream / MiniMax / OpenAI）+ 自定义；
 // Key 经 keyVault 本地加密读写，明文不上云；顶部展示网关默认路由（S2.2）。
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { providers } from '../registry/providers'
 import { defaultRouteTable } from '../gateway/providerRouter'
 import {
@@ -38,6 +38,7 @@ export default function ConfigCenter() {
   const [legacyErr, setLegacyErr] = useState('')
   const [diag, setDiag] = useState<'idle' | 'running' | 'ok' | 'error'>('idle')
   const [diagMessage, setDiagMessage] = useState('')
+  const editedBeforeVaultLoad = useRef(false)
 
   // S2.1：免密码加载（静态密钥解密），进入即编辑，无需解锁
   useEffect(() => {
@@ -45,15 +46,19 @@ export default function ConfigCenter() {
     loadVaultStatic().then((d) => {
       if (!mounted) return
       if (d) {
-        setData(d)
-        setVault(d) // S2.4：写入全局 vault，供画布 LLM 节点读取 Key
+        if (!editedBeforeVaultLoad.current) {
+          setData(d)
+          setVault(d) // S2.4：写入全局 vault，供画布 LLM 节点读取 Key
+        }
       } else if (isVaultInitialized()) {
         // 有 blob 但静态口令解不开 → 旧主口令加密数据，提示迁移
         setLegacy(true)
       } else {
         const empty: VaultData = { keys: {}, customProviders: [] }
-        setData(empty)
-        setVault(empty)
+        if (!editedBeforeVaultLoad.current) {
+          setData(empty)
+          setVault(empty)
+        }
       }
     })
     return () => {
@@ -83,6 +88,7 @@ export default function ConfigCenter() {
   }
 
   function setKey(id: string, val: string) {
+    editedBeforeVaultLoad.current = true
     setData((d) => {
       const next = { ...d, keys: { ...d.keys, [id]: val } }
       // S2.4 修复：输入即同步到全局 current，画布节点无需等"保存全部"就能读到

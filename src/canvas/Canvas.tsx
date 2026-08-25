@@ -953,6 +953,7 @@ function CanvasInner({
           text={selectedData.text ?? ''}
           kind={selectedData.nodeTypeId ?? ''}
           ratio={(selectedData.ratio as string | undefined) ?? getDefaultRatio(selectedData.nodeTypeId)}
+          imageUrls={(selectedData.imageUrls as string[] | undefined) ?? []}
           resolution={(selectedData.resolution as 'standard' | 'high' | '4k' | undefined) ?? 'standard'}
           duration={(selectedData.duration as number | undefined) ?? 5}
           model={(selectedData.model as string | undefined) ?? getDefaultModel(selectedData.nodeTypeId)}
@@ -992,21 +993,23 @@ function CanvasInner({
             )
           }
           onAddFile={(files) => {
-            const f = files[0]
-            if (!f || !selectedNodeId) return
-            if (f.type.startsWith('image/')) {
-              const r = new FileReader()
-              r.onload = () =>
-                setNodes((nds) =>
-                  nds.map((n) =>
-                    n.id === selectedNodeId
-                      ? { ...n, data: { ...n.data, imageUrl: String(r.result), status: 'done' } }
-                      : n,
-                  ),
-                )
-              r.readAsDataURL(f)
-            } else {
-              const base = { name: f.name, size: f.size }
+            if (!selectedNodeId || files.length === 0) return
+            const imageFiles = files.filter((f) => f.type.startsWith('image/'))
+            const otherFiles = files.filter((f) => !f.type.startsWith('image/'))
+            if (imageFiles.length) {
+              Promise.all(imageFiles.map((file) => new Promise<string>((resolve, reject) => {
+                const reader = new FileReader()
+                reader.onload = () => resolve(String(reader.result))
+                reader.onerror = () => reject(reader.error)
+                reader.readAsDataURL(file)
+              }))).then((imageUrls) => {
+                setNodes((nds) => nds.map((n) => n.id === selectedNodeId
+                  ? { ...n, data: { ...n.data, imageUrl: imageUrls[0], imageUrls, status: 'done' } }
+                  : n))
+              }).catch(() => showToast('部分图片读取失败，请重试'))
+            }
+            if (otherFiles.length) {
+              const baseFiles = otherFiles.map((f) => ({ name: f.name, size: f.size }))
               setNodes((nds) =>
                 nds.map((n) =>
                   n.id === selectedNodeId
@@ -1014,7 +1017,7 @@ function CanvasInner({
                         ...n,
                         data: {
                           ...n.data,
-                          files: [...(Array.isArray(n.data.files) ? n.data.files : []), base],
+                          files: [...(Array.isArray(n.data.files) ? n.data.files : []), ...baseFiles],
                         },
                       }
                     : n,

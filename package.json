@@ -19,6 +19,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:electron": "node scripts/dev-electron.mjs",
     "build": "vite build",
     "build:mac": "npm run build && electron-builder --mac --arm64",
     "preview": "vite preview"

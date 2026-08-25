@@ -16,6 +16,7 @@ interface Props {
   ratio: string
   resolution?: 'standard' | 'high' | '4k'
   duration?: number
+  imageUrls?: string[]
   model?: string
   modelOptions?: ModelOpt[]
   onPatchText: (t: string) => void
@@ -73,7 +74,7 @@ const PLACEHOLDER: Record<string, string> = {
 }
 
 export default function NodePromptBar({
-  selectedId, text, kind, ratio, model, modelOptions = [],
+  selectedId, text, kind, ratio, model, modelOptions = [], imageUrls = [],
   resolution = 'standard', duration = 5, onPatchText, onChangeRatio, onChangeResolution, onChangeDuration, onChangeModel, onAddFile,
 }: Props) {
   const [showPreset, setShowPreset] = useState(false)
@@ -106,6 +107,12 @@ export default function NodePromptBar({
   useEffect(() => {
     setSavedPresets(loadAssets().filter((a) => a.kind === 'prompt').map((a) => ({ name: a.name, prompt: a.content, icon: '⭐', cls: 'gi-yellow' })))
   }, [showPreset])
+
+  useEffect(() => {
+    const openPicker = () => fileRef.current?.click()
+    document.addEventListener('mc-open-file-picker', openPicker)
+    return () => document.removeEventListener('mc-open-file-picker', openPicker)
+  }, [])
 
   useEffect(() => {
     if (!selectedId) { setPos(null); return }
@@ -211,6 +218,16 @@ export default function NodePromptBar({
 
   return (
     <div className="mc-prompt-box" ref={boxRef} style={{ left: pos.left, top: pos.top }}>
+      {imageUrls.length > 0 && (
+        <div className="mc-prompt-attachments" aria-label="已引用图片">
+          {imageUrls.map((url, index) => (
+            <div className="mc-prompt-attachment" key={`${url.slice(0, 24)}-${index}`}>
+              <img src={url} alt={`图 ${index + 1}`} />
+              <span>图 {index + 1}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <textarea
         ref={taRef}
         className="mc-prompt-input"

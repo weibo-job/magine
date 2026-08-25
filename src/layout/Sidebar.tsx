@@ -5,6 +5,7 @@ interface NavItem {
 }
 
 const ITEMS: NavItem[] = [
+  { key: 'projects', label: '项目中心' },
   { key: 'roundtable', label: '圆桌思辨' },
   { key: 'create', label: '创作' },
   { key: 'drama', label: '短剧 Agent' },

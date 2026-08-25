@@ -10,6 +10,7 @@ import AssetPage from './pages/AssetPage'
 import LearnPage from './pages/LearnPage'
 import RoundtablePage from './pages/RoundtablePage'
 import SolutionWorkbenchPage from './pages/SolutionWorkbenchPage'
+import ProjectCenterPage from './pages/ProjectCenterPage'
 import type { SavedAsset } from './store/assets'
 import ConfigCenter from './settings/ConfigCenter'
 import { openProjectFile, loadRecent, loadLocal, clearLocal } from './store/project'
@@ -19,6 +20,7 @@ import { artifactToCanvasNodes, type RoundtableArtifact } from './roundtable/dom
 import { saveRoundtableArtifact } from './roundtable/store'
 
 const TITLES: Record<string, string> = {
+  projects: '项目中心',
   create: '创作',
   drama: '短剧 Agent',
   market: '营销 Agent',
@@ -130,6 +132,18 @@ export default function App() {
     setActiveKey('roundtable')
   }
 
+  function handleResumeProject(artifact: RoundtableArtifact) {
+    setRoundtableArtifact(artifact)
+    if (artifact.demoHtml || artifact.conclusion) {
+      setSolutionArtifact(artifact)
+      setRoundtableResumeKey('solution')
+      setActiveKey('solution')
+      return
+    }
+    setRoundtableResumeKey('roundtable')
+    setActiveKey('roundtable')
+  }
+
   function handleNavigate(nextKey: string) {
     if (nextKey === 'roundtable' && roundtableResumeKey === 'solution' && solutionArtifact) {
       setActiveKey('solution')
@@ -145,6 +159,7 @@ export default function App() {
     const layer = (key: string, content: ReactNode) => <div key={key} className={`app-page-layer${activeKey === key ? ' is-active' : ''}`}>{content}</div>
     return <div className="app-page-stack">
       {layer('settings', <ConfigCenter />)}
+      {layer('projects', <ProjectCenterPage active={activeKey === 'projects'} onResumeArtifact={handleResumeProject} onOpenCanvas={() => setActiveKey('free')} onNewCanvas={handleNew} />)}
       {layer('free', <CanvasPage key={`${projectPath || 'new'}-${pendingWorkflow?.id ?? 'idle'}-${pendingAsset?.id ?? 'none'}`} initialProject={initialProject ?? undefined} workflowPrompt={pendingWorkflow?.prompt} assetToInsert={pendingAsset?.asset} />)}
       {layer('create', <Welcome onNew={handleNew} onOpen={handleOpen} recent={recent} />)}
       {layer('drama', <AgentWorkbenchPage kind="drama" onBuildWorkflow={handleBuildWorkflow} />)}

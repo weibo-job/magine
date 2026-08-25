@@ -10,3 +10,4 @@ frames/
 !.env.example
 *.local
 .DS_Store
+.magine-runtime/

@@ -11,6 +11,8 @@ export interface NodeCardData {
   text?: string
   result?: string
   imageUrl?: string
+  /** 用户上传到图像节点的多张参考图；imageUrl 保留第一张作为旧版生成链路兼容值 */
+  imageUrls?: string[]
   /** S4.2 多图结果切换：一次生成的多张结果（复刻小云雀"结果 N 可切前一张"） */
   results?: string[]
   /** S4.2 当前展示的结果下标 */

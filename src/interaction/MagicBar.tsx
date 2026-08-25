@@ -14,7 +14,7 @@ export default function MagicBar({ items, onDismiss, onDisableCat }: Props) {
       {items.map((it) => (
         <div className="magic-card" key={it.id}>
           <div className="magic-head">
-            <span className="magic-ic">🪄</span>
+            <span className="magic-ic">·</span>
             <span className="magic-title">{it.title}</span>
             <span className="magic-cat">{it.category}</span>
           </div>

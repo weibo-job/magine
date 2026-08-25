@@ -7,21 +7,21 @@ interface Props {
   onAdd: (typeId: string) => void
 }
 
-// 节点类型 → 小云雀风彩色图标
+// 节点类型 → 极简单色符号
 const TYPE_ICON: Record<string, { icon: string; cls: string }> = {
-  prompt: { icon: '📝', cls: 'gi-green' },
-  image: { icon: '🖼', cls: 'gi-orange' },
-  edit: { icon: '🎨', cls: 'gi-orange' },
-  video: { icon: '🎬', cls: 'gi-purple' },
-  llm: { icon: '💬', cls: 'gi-blue' },
-  agent: { icon: '🤖', cls: 'gi-pink' },
-  music: { icon: '🎵', cls: 'gi-cyan' },
-  storyboard: { icon: '🎞', cls: 'gi-blue' },
-  material: { icon: '📁', cls: 'gi-cyan' },
-  region: { icon: '◫', cls: 'gi-green' },
-  panorama: { icon: '🌐', cls: 'gi-purple' },
-  topaz: { icon: '✨', cls: 'gi-orange' },
-  face: { icon: '👤', cls: 'gi-pink' },
+  prompt: { icon: 'T', cls: 'gi-neutral' },
+  image: { icon: '□', cls: 'gi-neutral' },
+  edit: { icon: '✎', cls: 'gi-neutral' },
+  video: { icon: '▶', cls: 'gi-neutral' },
+  llm: { icon: '·', cls: 'gi-neutral' },
+  agent: { icon: 'A', cls: 'gi-neutral' },
+  music: { icon: '♫', cls: 'gi-neutral' },
+  storyboard: { icon: '▤', cls: 'gi-neutral' },
+  material: { icon: '□', cls: 'gi-neutral' },
+  region: { icon: '＋', cls: 'gi-neutral' },
+  panorama: { icon: '◎', cls: 'gi-neutral' },
+  topaz: { icon: '✦', cls: 'gi-neutral' },
+  face: { icon: '○', cls: 'gi-neutral' },
 }
 
 const HELP_HTML = `
@@ -98,19 +98,19 @@ export default function Dock({ onAdd }: Props) {
         </button>
         <div className="mc-dock-sep" />
         <button className="mc-dock-item" title="AI 角色库">
-          <span className="ic">🤖</span>
+          <span className="ic">A</span>
           <span className="lb">AI角色库</span>
         </button>
         <button className="mc-dock-item" title="项目资产">
-          <span className="ic">📁</span>
+          <span className="ic">□</span>
           <span className="lb">项目资产</span>
         </button>
         <button className="mc-dock-item" title="资产库">
-          <span className="ic">🗂</span>
+          <span className="ic">▦</span>
           <span className="lb">资产库</span>
         </button>
         <button className="mc-dock-item" title="帮助" onClick={() => setShowHelp(true)}>
-          <span className="ic">❔</span>
+          <span className="ic">?</span>
           <span className="lb">帮助</span>
         </button>
       </div>

@@ -49,6 +49,16 @@ if (!gotTheLock) {
   app.quit()
 }
 
+let mainWindow: BrowserWindow | null = null
+if (gotTheLock) {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  })
+}
+
 // ---- S2.14 Agent 环境工具：主进程真执行（fs / net / terminal） ----
 // 渲染进程经 preload 的 electronAPI.invoke('agent:tool', {tool, args}) 调到这里。
 // api 组（read_config 等）在渲染进程用 vaultStore 直接跑，不经此通道。
@@ -252,13 +262,18 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
   })
+  mainWindow = win
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null
+  })
 
   // 开发模式优先加载 Vite；服务未启动时自动回退到构建产物，避免 Electron 空白窗口。
   const productionIndex = path.join(__dirname, '..', 'dist', 'index.html')
   const loadProduction = () => void win.loadFile(productionIndex)
-  if (process.env.VITE_DEV_SERVER_URL) {
+  const devServerUrl = process.env.VITE_DEV_SERVER_URL || (!app.isPackaged ? 'http://127.0.0.1:5173' : '')
+  if (devServerUrl) {
     win.webContents.once('did-fail-load', loadProduction)
-    void win.loadURL(process.env.VITE_DEV_SERVER_URL).catch(loadProduction)
+    void win.loadURL(devServerUrl).catch(loadProduction)
   } else {
     loadProduction()
   }
